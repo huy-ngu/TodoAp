@@ -35,9 +35,14 @@
       <div class="header-action-wrapper">
         <button class="header-action" type="button">⋯</button>
         <div class="header-dropdown" style="display: none;">
-          <button class="dropdown-item" data-action="settings">Cài đặt</button>
+          <div class="dropdown-theme">
+            <span class="dropdown-label">Đổi màu nền:</span>
+            <div class="theme-colors board-theme-colors"></div>
+          </div>
           <hr>
           <button class="dropdown-item" data-action="archived">Mục đã lưu trữ</button>
+          <hr>
+          <button class="dropdown-item" data-action="delete-board">Xóa bảng</button>
           <hr>
           <button class="dropdown-item" data-action="logout">Đăng xuất</button>
         </div>
@@ -47,7 +52,7 @@
 
   <main class="app-main">
     <div class="view-wrapper" id="view-wrapper" data-mode="board">
-      <section class="view-panel view-panel--inbox is-hidden" id="inbox-panel">
+      <section class="view-panel view-panel--inbox" id="inbox-panel">
         <header class="inbox-header">
           <div>
             <h2 id="inbox-title"></h2>
@@ -71,7 +76,6 @@
           <!-- Card inbox -->
         </div>
       </section>
-
       <section class="view-panel view-panel--board" id="board-panel">
         <section class="board" id="board-root">
           <!-- Nội dung sẽ được tạo bằng JavaScript -->
@@ -82,7 +86,7 @@
 
   <nav class="view-switch view-switch--floating" aria-label="Chọn trang hiển thị">
     <div class="view-switch__options">
-      <button class="view-switch__btn" data-view="inbox" aria-pressed="false" type="button">
+      <button class="view-switch__btn is-active" data-view="inbox" aria-pressed="true" type="button">
         Hộp thư chung
       </button>
       <button class="view-switch__btn is-active" data-view="board" aria-pressed="true" type="button">

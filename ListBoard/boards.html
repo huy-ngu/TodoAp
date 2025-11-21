@@ -6,30 +6,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>TrìHoãnPro | Danh sách bảng</title>
     <link rel="icon" type="image/png" href="/images/logo.png">
+    <link rel="stylesheet" href="/components/layout.css" />
     <link rel="stylesheet" href="/ListBoard/boards.css" />
 </head>
 
 <body>
+    <!-- Components sẽ được load tự động -->
+    <div id="sidebar-container"></div>
+    <div id="header-container"></div>
 
-
-    <header class="app-header app-header--compact">
-        <a href="/ListBoard/boards.html" style="text-decoration: none;">
-            <div class="header-left">
-                <!-- <span class="logo-dot" aria-hidden="true"> -->
-                <img src="/images/logo.png" alt="icon" style="width: 48px; height: 48px; border-radius: 12px;
-    ">
-                </span>
-                <div>
-                    <h1>TrìHoãnPro</h1>
-                </div>
-            </div>
-        </a>
-        <div class="header-center">
-            <button class="cta cta--secondary" id="add-board-btn" type="button">+ Thêm mới bảng</button>
-        </div>
-    </header>
-
-    <div class="main-content">
+    <div class="main-content" id="main-content">
         <div>
             <h3>Bảng đã gắn sao</h3>
             <div id="board-star-list">
@@ -44,6 +30,7 @@
 
 
 
+    <script src="/components/layout.js" type="module"></script>
     <script src="/ListBoard/boards.js" type="module"></script>
 </body>
 

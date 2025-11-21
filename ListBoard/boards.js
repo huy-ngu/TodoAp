@@ -1,6 +1,5 @@
 import { boards, baseUrl, boardThemeColors } from "../Entity.js";
 console.log(boards);
-console.log(boardThemeColors);
 const currentUser = JSON.parse(sessionStorage.getItem('currentUser'));
 if (!currentUser) {
     alert("Bạn chưa đăng nhập! Vui lòng quay lại.");
@@ -8,36 +7,47 @@ if (!currentUser) {
 }
 
 
-const containerBoard = document.getElementById("board-list");
-
-boards.forEach(board => {
-  containerBoard.innerHTML += `
-  <a href="/index.html?board=${board.id}"></div>
-        <div class="board">
+// Render lại danh sách boards
+function renderBoards() {
+  const containerBoard = document.getElementById("board-list");
+  const containerStarBoard = document.getElementById("board-star-list");
+  
+  // Xóa nội dung cũ
+  containerBoard.innerHTML = '';
+  containerStarBoard.innerHTML = '';
+  
+  // Render tất cả boards của user
+  boards.forEach(board => {
+    if(board.userId === currentUser.id) {
+      // Icon ngôi sao: ★ nếu starred, ☆ nếu không
+      const starIcon = board.starred ? '★' : '☆';
+      const starClass = board.starred ? 'starred' : '';
+      
+      const boardHTML = `
+        <a href="/index.html?board=${board.id}">
+          <div class="board">
             <div class="board-theme" style="background: ${board.theme};">
-            <span class="star-icon-board" >☆</span>
+              <span class="star-icon-board ${starClass}" data-board-id="${board.id}">${starIcon}</span>
             </div>
             <div class="board-title">${board.title}</div>
-        </div>
-    </a>`;
-});
+          </div>
+        </a>`;
+      
+      containerBoard.innerHTML += boardHTML;
+      
+      // Nếu starred, thêm vào danh sách starred
+      if(board.starred === true) {
+        containerStarBoard.innerHTML += boardHTML;
+      }
+    }
+  });
+  
+  // Setup event listeners cho các ngôi sao
+  setupStarButtons();
+}
 
-const containerStarBoard = document.getElementById("board-star-list");
-
-boards.forEach(board => {
-  if(board.starred == true) {
-    console.log("true");
-    containerStarBoard.innerHTML += ` 
-    <a href="/index.html?board=${board.id}"></div>
-        <div class="board">
-            <div class="board-theme" style="background: ${board.theme};">           
-              <span class="star-icon-board" >☆</span>
-            </div>
-            <div class="board-title">${board.title}</div>
-        </div>
-    </a>`;
-  }
-});
+// Render lần đầu
+renderBoards();
 
 const generateId = (() => {
   let counter = 0;
@@ -46,49 +56,62 @@ const generateId = (() => {
 
 
 
-// xu li them bang
-document.addEventListener("DOMContentLoaded", () => {
-    setupAddBoardButton();
-});
-
-
-function setupAddBoardButton() {
-  const addBoardBtn = document.getElementById("add-board-btn");
-  if (!addBoardBtn) return;
-  addBoardBtn.addEventListener("click", handleAddBoard);
-}
-function handleAddBoard() {
-  const title = prompt("Tên bảng mới", "Bảng mới");
-  if (!title) {
-    return;
-  }
-  const normalizedTitle = title.trim();
-  if (!normalizedTitle) return;
-
-  const newBoard = {
-    id: generateId("board"),
-    title: normalizedTitle,
-    starred: false,
-    userId: currentUser.id,
-    theme: `${boardThemeColors.b1}`, // Theme mặc định
-  };
-
-  boards.push(newBoard);
-  localStorage.setItem('boards', JSON.stringify(boards));
-
-  console.log("[BOARD] Đã thêm bảng:", newBoard);
-  console.log("[BOARD] Danh sách bảng:", boards);
-
-  // Cập nhật URL với query parameter board=boardId
-  updateBoardUrl(newBoard.id);
-
-  // Render board mới
-  window.location.href = `${baseUrl}/index.html?board=${newBoard.id}`;
-
-}
+// xu li them bang - đã được xử lý trong layout.js
+// Logic xử lý nút "Thêm mới bảng" đã được chuyển vào components/layout.js
+// để có thể dùng chung cho tất cả các trang (boards, admin, templates)
 
 function updateBoardUrl(boardId) {
   const url = new URL(window.location.href);
   url.searchParams.set("board", boardId);
   window.history.pushState({ boardId }, "", url);
+}
+
+/**
+ * Setup event listeners cho các nút ngôi sao
+ */
+function setupStarButtons() {
+  const starButtons = document.querySelectorAll('.star-icon-board');
+  
+  starButtons.forEach(starBtn => {
+    // Xóa event listener cũ nếu có
+    const newStarBtn = starBtn.cloneNode(true);
+    starBtn.parentNode.replaceChild(newStarBtn, starBtn);
+    
+    // Thêm event listener mới
+    newStarBtn.addEventListener('click', (e) => {
+      e.preventDefault(); // Ngăn chặn chuyển trang khi click vào ngôi sao
+      e.stopPropagation(); // Ngăn chặn event bubbling
+      
+      const boardId = newStarBtn.getAttribute('data-board-id');
+      if (boardId) {
+        toggleBoardStar(boardId);
+      }
+    });
+  });
+}
+
+/**
+ * Toggle trạng thái starred của board
+ */
+function toggleBoardStar(boardId) {
+  const board = boards.find((b) => b.id === boardId);
+  if (!board) {
+    console.warn("[BOARD] Không tìm thấy board với id:", boardId);
+    return;
+  }
+  
+  // Đổi trạng thái starred
+  board.starred = !board.starred;
+  
+  // Lưu vào localStorage
+  localStorage.setItem('boards', JSON.stringify(boards));
+  
+  console.log("[BOARD] Đã toggle starred:", {
+    boardId: board.id,
+    boardTitle: board.title,
+    starred: board.starred,
+  });
+  
+  // Render lại danh sách
+  renderBoards();
 }

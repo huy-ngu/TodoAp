@@ -1,6 +1,5 @@
-import  {boards, lists, cards, inboxData, themeColors, baseUrl}  from "./Entity.js";
+import  {boards, lists, cards, inboxData, cardsInbox, themeColors, baseUrl, boardThemeColors}  from "./Entity.js";
 
-console.log(lists);
 
 const currentUser = JSON.parse(sessionStorage.getItem('currentUser'));
 if (!currentUser) {
@@ -10,7 +9,7 @@ if (!currentUser) {
 
 const viewState = {
   board: true,
-  inbox: false,
+  inbox: true, // Hộp thư chung hiển thị từ đầu
 };
 
 const generateId = (() => {
@@ -71,17 +70,8 @@ function renderBoard(boardId) {
   // Cập nhật trạng thái starred của button
   updateStarButton(board.starred);
 
-  // Áp dụng theme cho board
-  const boardTheme = board.theme || "blue";
-  const boardColors = themeColors[boardTheme] || themeColors.blue;
-  const boardPanel = document.getElementById("board-panel");
-  if (boardPanel) {
-    boardPanel.style.setProperty("--theme-primary", boardColors.primary);
-    boardPanel.style.setProperty("--theme-light", boardColors.light);
-    boardPanel.style.setProperty("--theme-gradient", boardColors.gradient);
-    boardPanel.style.setProperty("--theme-border", boardColors.border);
-    boardPanel.setAttribute("data-theme", boardTheme);
-  }
+  // Board không dùng themeColors cho list, chỉ dùng màu nền body
+  // Board panel không cần CSS variables từ themeColors
 
   const boardRoot = document.getElementById("board-root");
   
@@ -127,15 +117,12 @@ function renderInbox(inbox) {
   document.getElementById("inbox-description").textContent =
     inbox.description;
 
-  // Áp dụng theme cho inbox
+  // Áp dụng theme cho inbox - chỉ màu nền (giống list)
   const inboxTheme = inbox.theme || "green";
-  const inboxColors = themeColors[inboxTheme] || themeColors.green;
+  const inboxBackgroundColor = themeColors[inboxTheme] || themeColors.green;
   const inboxPanel = document.getElementById("inbox-panel");
   if (inboxPanel) {
-    inboxPanel.style.setProperty("--theme-primary", inboxColors.primary);
-    inboxPanel.style.setProperty("--theme-light", inboxColors.light);
-    inboxPanel.style.setProperty("--theme-gradient", inboxColors.gradient);
-    inboxPanel.style.setProperty("--theme-border", inboxColors.border);
+    inboxPanel.style.backgroundColor = inboxBackgroundColor;
     inboxPanel.setAttribute("data-theme", inboxTheme);
   }
 
@@ -146,8 +133,10 @@ function renderInbox(inbox) {
   
   inboxRoot.innerHTML = "";
 
-  // Lọc bỏ các card có storage: true
-  const visibleCards = inbox.cards.filter((card) => !card.storage);
+  // Lọc cards theo userId của currentUser và loại bỏ các card có storage: true
+  const visibleCards = cardsInbox.filter((card) => 
+    card.userId === currentUser.id && !card.storage
+  );
   
   visibleCards.forEach((card) => {
     const cardNode = createCard(card, { source: "inbox" });
@@ -174,13 +163,10 @@ function createList(list) {
   const listElement = template.querySelector(".list");
   listElement.setAttribute("data-list-id", list.id);
 
-  // Áp dụng theme cho list
+  // Áp dụng theme cho list - chỉ màu nền
   const listTheme = list.theme || "blue";
-  const listColors = themeColors[listTheme] || themeColors.blue;
-  listElement.style.setProperty("--theme-primary", listColors.primary);
-  listElement.style.setProperty("--theme-light", listColors.light);
-  listElement.style.setProperty("--theme-gradient", listColors.gradient);
-  listElement.style.setProperty("--theme-border", listColors.border);
+  const listBackgroundColor = themeColors[listTheme] || themeColors.blue;
+  listElement.style.backgroundColor = listBackgroundColor;
   listElement.setAttribute("data-theme", listTheme);
 
   template.querySelector(".list__title").textContent = list.title;
@@ -217,7 +203,7 @@ function setupListDropdown(template, list) {
   Object.keys(themeColors).forEach((themeKey) => {
     const colorItem = document.createElement("div");
     colorItem.className = "theme-color-item";
-    colorItem.style.backgroundColor = themeColors[themeKey].primary;
+    colorItem.style.backgroundColor = themeColors[themeKey];
     colorItem.setAttribute("data-theme", themeKey);
     
     // Đánh dấu theme hiện tại
@@ -296,24 +282,60 @@ function setupHeaderDropdown() {
 
   if (!actionBtn || !dropdown) return;
 
+  // Xử lý các action trong dropdown
+  const boardThemeColorsContainer = dropdown.querySelector('.board-theme-colors');
+
   // Toggle dropdown khi click vào nút action
   actionBtn.addEventListener("click", (e) => {
     e.stopPropagation();
     closeAllDropdowns();
-    dropdown.style.display = dropdown.style.display === "none" ? "block" : "none";
+    const isOpening = dropdown.style.display === "none";
+    dropdown.style.display = isOpening ? "block" : "none";
+    
+    // Cập nhật active state khi mở dropdown
+    if (isOpening && boardThemeColorsContainer) {
+      const currentBoard = boards.find((b) => b.id === DEFAULT_BOARD_ID);
+      if (currentBoard) {
+        boardThemeColorsContainer.querySelectorAll('.theme-color-item').forEach((item) => {
+          const themeValue = item.getAttribute('data-board-theme');
+          if (boardThemeColors[themeValue] === currentBoard.theme) {
+            item.classList.add('active');
+          } else {
+            item.classList.remove('active');
+          }
+        });
+      }
+    }
   });
-
-  // Xử lý các action trong dropdown
-  const settingsBtn = dropdown.querySelector('[data-action="settings"]');
   const archivedBtn = dropdown.querySelector('[data-action="archived"]');
+  const deleteBoardBtn = dropdown.querySelector('[data-action="delete-board"]');
   const logoutBtn = dropdown.querySelector('[data-action="logout"]');
 
-  settingsBtn?.addEventListener("click", (e) => {
-    e.stopPropagation();
-    closeAllDropdowns();
-    // TODO: Xử lý cài đặt
-    console.log("[HEADER] Cài đặt");
-  });
+  // Tạo các màu nền từ boardThemeColors
+  if (boardThemeColorsContainer) {
+    boardThemeColorsContainer.innerHTML = "";
+    
+    Object.keys(boardThemeColors).forEach((boardId) => {
+      const colorItem = document.createElement("div");
+      colorItem.className = "theme-color-item";
+      colorItem.style.background = boardThemeColors[boardId];
+      colorItem.setAttribute("data-board-theme", boardId);
+      
+      // Đánh dấu theme hiện tại
+      const currentBoard = boards.find((b) => b.id === DEFAULT_BOARD_ID);
+      if (currentBoard && currentBoard.theme === boardThemeColors[boardId]) {
+        colorItem.classList.add("active");
+      }
+
+      colorItem.addEventListener("click", (e) => {
+        e.stopPropagation();
+        updateBoardTheme(boardThemeColors[boardId]);
+        closeAllDropdowns();
+      });
+
+      boardThemeColorsContainer.appendChild(colorItem);
+    });
+  }
 
   archivedBtn?.addEventListener("click", (e) => {
     e.stopPropagation();
@@ -321,9 +343,16 @@ function setupHeaderDropdown() {
     openArchivedModal();
   });
 
+  deleteBoardBtn?.addEventListener("click", (e) => {
+    e.stopPropagation();
+    closeAllDropdowns();
+    handleDeleteBoard();
+  });
+
   logoutBtn?.addEventListener("click", (e) => {
     e.stopPropagation();
     closeAllDropdowns();
+    logout();
     // TODO: Xử lý đăng xuất
     console.log("[HEADER] Đăng xuất");
   });
@@ -412,7 +441,10 @@ function renderArchivedCards() {
   
   // Lấy tất cả cards có storage: true (từ board và inbox)
   const archivedBoardCards = cards.filter((card) => card.storage === true);
-  const archivedInboxCards = inboxData.cards.filter((card) => card.storage === true);
+  // Lọc inbox cards theo userId của currentUser và storage: true
+  const archivedInboxCards = cardsInbox.filter((card) => 
+    card.userId === currentUser.id && card.storage === true
+  );
   const allArchivedCards = [...archivedBoardCards, ...archivedInboxCards];
   
   if (allArchivedCards.length === 0) {
@@ -504,7 +536,7 @@ function restoreCard(cardId, source, listId) {
   let card = null;
   
   if (source === 'inbox') {
-    card = inboxData.cards.find((c) => c.id === cardId);
+    card = cardsInbox.find((c) => c.id === cardId);
   } else {
     card = cards.find((c) => c.id === cardId);
   }
@@ -515,6 +547,13 @@ function restoreCard(cardId, source, listId) {
   }
   
   card.storage = false;
+  
+  if (source === 'inbox') {
+    localStorage.setItem('cardsInbox', JSON.stringify(cardsInbox));
+  } else {
+    localStorage.setItem('cards', JSON.stringify(cards));
+  }
+
   console.log("[CARD] Đã khôi phục thẻ:", { card, source, listId });
   
   // Render lại modal
@@ -536,13 +575,56 @@ function restoreList(listId) {
   if (!list) return;
   
   list.storage = false;
+  localStorage.setItem('lists', JSON.stringify(lists));
   console.log("[LIST] Đã khôi phục danh sách:", list);
-  
+
   // Render lại modal
   renderArchivedLists();
-  
+
   // Render lại board
   renderBoard(DEFAULT_BOARD_ID);
+}
+
+function logout() {
+  sessionStorage.removeItem('currentUser');
+  window.location.href = `${baseUrl}/index.html`;
+  alert("Đăng xuất thành công");
+}
+
+/**
+ * Cập nhật màu nền của board
+ */
+function updateBoardTheme(newTheme) {
+  const board = boards.find((b) => b.id === DEFAULT_BOARD_ID);
+  if (!board) {
+    console.warn("[BOARD] Không tìm thấy board với id:", DEFAULT_BOARD_ID);
+    return;
+  }
+
+  board.theme = newTheme;
+  localStorage.setItem('boards', JSON.stringify(boards));
+
+  console.log("[BOARD] Đã cập nhật màu nền:", {
+    boardId: board.id,
+    boardTitle: board.title,
+    newTheme: newTheme,
+  });
+
+  // Render lại board để áp dụng màu nền mới
+  renderBoard(DEFAULT_BOARD_ID);
+  
+  // Cập nhật active state trong dropdown
+  const boardThemeColorsContainer = document.querySelector('.board-theme-colors');
+  if (boardThemeColorsContainer) {
+    boardThemeColorsContainer.querySelectorAll('.theme-color-item').forEach((item) => {
+      const themeValue = item.getAttribute('data-board-theme');
+      if (boardThemeColors[themeValue] === newTheme) {
+        item.classList.add('active');
+      } else {
+        item.classList.remove('active');
+      }
+    });
+  }
 }
 
 /**
@@ -556,6 +638,8 @@ function updateListTheme(listId, newTheme) {
   }
 
   list.theme = newTheme;
+  localStorage.setItem('lists', JSON.stringify(lists));
+
   console.log("[LIST] Đã cập nhật theme:", {
     listId: list.id,
     listTitle: list.title,
@@ -579,11 +663,11 @@ function setupInboxDropdown(inbox) {
   // Xóa các màu theme cũ nếu có
   themeColorsContainer.innerHTML = "";
 
-  // Tạo các màu theme
+  // Tạo các màu theme cho inbox (giống list)
   Object.keys(themeColors).forEach((themeKey) => {
     const colorItem = document.createElement("div");
     colorItem.className = "theme-color-item";
-    colorItem.style.backgroundColor = themeColors[themeKey].primary;
+    colorItem.style.backgroundColor = themeColors[themeKey];
     colorItem.setAttribute("data-theme", themeKey);
     
     // Đánh dấu theme hiện tại
@@ -621,6 +705,7 @@ function setupInboxDropdown(inbox) {
  */
 function updateInboxTheme(newTheme) {
   inboxData.theme = newTheme;
+  localStorage.setItem('inboxData', JSON.stringify(inboxData));
   console.log("[INBOX] Đã cập nhật theme:", {
     newTheme: newTheme,
   });
@@ -740,6 +825,12 @@ function toggleCardStatus(source, listId, cardId) {
   cardRef.status = cardRef.status === "done" ? "pending" : "done";
 
   if (source === "board") {
+    localStorage.setItem('cards', JSON.stringify(cards));
+  } else {
+    localStorage.setItem('cardsInbox', JSON.stringify(cardsInbox));
+  }
+
+  if (source === "board") {
     renderBoard(DEFAULT_BOARD_ID);
   } else {
     renderInbox(inboxData);
@@ -781,6 +872,13 @@ function moveCardToStorage(source, listId, cardId) {
   }
 
   cardRef.storage = true;
+  
+  if (source === "board") {
+    localStorage.setItem('cards', JSON.stringify(cards));
+  } else {
+    localStorage.setItem('cardsInbox', JSON.stringify(cardsInbox));
+  }
+
   console.log("[CARD] Đã lưu trữ thẻ:", {
     card: { ...cardRef },
     source,
@@ -806,6 +904,7 @@ function moveListToStorage(listId) {
   }
 
   list.storage = true;
+  localStorage.setItem('lists', JSON.stringify(lists));
   console.log("[LIST] Đã lưu trữ danh sách:", {
     listId: list.id,
     listTitle: list.title,
@@ -835,6 +934,8 @@ function moveAllCardsToStorage(listId) {
       storedCount++;
     }
   });
+
+  localStorage.setItem('cards', JSON.stringify(cards));
 
   console.log("[LIST] Đã lưu trữ toàn bộ thẻ trong danh sách:", {
     listId: list.id,
@@ -923,6 +1024,7 @@ function toggleBoardStar() {
 
   board.starred = !board.starred;
   updateStarButton(board.starred);
+  localStorage.setItem('boards', JSON.stringify(boards));
   console.log("[BOARD] Board starred:", board.starred);
   console.log("[BOARD] Boards:", boards);
 }
@@ -941,6 +1043,67 @@ function updateStarButton(isStarred) {
     starIcon.textContent = "☆";
     starBtn.classList.remove("is-starred");
   }
+}
+
+/**
+ * Xóa bảng và tất cả dữ liệu liên quan (lists và cards)
+ */
+function handleDeleteBoard() {
+  const board = boards.find((b) => b.id === DEFAULT_BOARD_ID);
+  if (!board) {
+    console.warn("[BOARD] Không tìm thấy board để xóa:", DEFAULT_BOARD_ID);
+    return;
+  }
+
+  // Xác nhận xóa
+  const confirmMessage = `Bạn có chắc chắn muốn xóa bảng "${board.title}"?\n\nTất cả danh sách và thẻ trong bảng này sẽ bị xóa vĩnh viễn.`;
+  if (!confirm(confirmMessage)) {
+    return;
+  }
+
+  // Lấy tất cả lists thuộc board này
+  const boardLists = lists.filter((list) => list.boardId === DEFAULT_BOARD_ID);
+  
+  // Lấy tất cả listIds để xóa cards
+  const listIds = boardLists.map((list) => list.id);
+
+  // Xóa tất cả cards thuộc các lists này
+  const cardsToDelete = cards.filter((card) => listIds.includes(card.listId));
+  cardsToDelete.forEach((cardToDelete) => {
+    const index = cards.findIndex((c) => c.id === cardToDelete.id);
+    if (index !== -1) {
+      cards.splice(index, 1);
+    }
+  });
+
+  // Xóa tất cả lists thuộc board này
+  boardLists.forEach((listToDelete) => {
+    const index = lists.findIndex((l) => l.id === listToDelete.id);
+    if (index !== -1) {
+      lists.splice(index, 1);
+    }
+  });
+
+  // Xóa board
+  const boardIndex = boards.findIndex((b) => b.id === DEFAULT_BOARD_ID);
+  if (boardIndex !== -1) {
+    boards.splice(boardIndex, 1);
+  }
+
+  // Lưu vào localStorage
+  localStorage.setItem('boards', JSON.stringify(boards));
+  localStorage.setItem('lists', JSON.stringify(lists));
+  localStorage.setItem('cards', JSON.stringify(cards));
+
+  console.log("[BOARD] Đã xóa bảng:", {
+    boardId: DEFAULT_BOARD_ID,
+    boardTitle: board.title,
+    deletedLists: boardLists.length,
+    deletedCards: cardsToDelete.length,
+  });
+
+  // Điều hướng về trang ListBoard sau khi xóa xong
+  window.location.href = `${baseUrl}/ListBoard/boards.html`;
 }
 
 /**
@@ -965,7 +1128,7 @@ function handleAddBoard() {
     title: normalizedTitle,
     starred: false,
     userId: currentUser.id,
-    theme: "white", // Theme mặc định
+    theme: `${boardThemeColors.b2}`, // Theme mặc định
   };
 
   boards.push(newBoard);
@@ -1030,6 +1193,7 @@ function handleAddCard(listId) {
   };
 
   cards.push(newCard);
+  localStorage.setItem('cards', JSON.stringify(cards));
   console.log("[CARD] Đã thêm thẻ:", {
     card: newCard,
     listId: targetList.id,
@@ -1045,10 +1209,12 @@ function handleAddInboxCard() {
   const newCard = {
     id: generateId("inbox-card"),
     ...cardInput,
+    userId: currentUser.id, // Thêm userId cho card
     storage: false, // Mặc định không lưu trữ
   };
 
-  inboxData.cards.unshift(newCard);
+  cardsInbox.unshift(newCard);
+  localStorage.setItem('cardsInbox', JSON.stringify(cardsInbox));
   console.log("[INBOX] Đã thêm thẻ:", newCard);
 
   renderInbox(inboxData);
@@ -1060,18 +1226,20 @@ function promptForCardInput(defaults = {}) {
   const normalizedTitle = title.trim();
   if (!normalizedTitle) return null;
 
-  const label = prompt("Nhãn hiển thị", defaults.label || "General") || "General";
-  const badge =
-    prompt("Badge (ví dụ số lượng, trạng thái)", defaults.badge || "Chi tiết") ||
-    "Chi tiết";
-  const footer =
-    prompt("Chú thích dưới thẻ", defaults.footer || "Hạn: dd/mm") || "Không có hạn";
+  const label = prompt("Nhãn hiển thị", defaults.label || "Công việc");
+  if (label === null) return null; // User nhấn cancel
+  
+  const badge = prompt("Badge (ví dụ số lượng, trạng thái)", defaults.badge || "Chi tiết");
+  if (badge === null) return null; // User nhấn cancel
+  
+  const footer = prompt("Chú thích dưới thẻ", defaults.footer || "Hạn: dd/mm");
+  if (footer === null) return null; // User nhấn cancel
 
   return {
     title: normalizedTitle,
-    label: label.trim(),
-    badge: badge.trim(),
-    footer: footer.trim(),
+    label: (label || "General").trim(),
+    badge: (badge || "Chi tiết").trim(),
+    footer: (footer || "Không có hạn").trim(),
     status: defaults.status || "pending",
   };
 }
@@ -1170,8 +1338,10 @@ function handleCardFormSubmit(event) {
   });
 
   if (currentCardContext.source === "board") {
+    localStorage.setItem('cards', JSON.stringify(cards));
     renderBoard(DEFAULT_BOARD_ID);
   } else {
+    localStorage.setItem('cardsInbox', JSON.stringify(cardsInbox));
     renderInbox(inboxData);
   }
 
@@ -1190,7 +1360,7 @@ function findCardReference(context) {
   }
 
   if (context.source === "inbox") {
-    return inboxData.cards.find((card) => card.id === context.cardId) || null;
+    return cardsInbox.find((card) => card.id === context.cardId) || null;
   }
 
   return null;
